@@ -1,7 +1,12 @@
 package scraper
 
 import (
+	"bufio"
+	"bytes"
 	"fmt"
+	"golang.org/x/text/encoding/japanese"
+	"golang.org/x/text/transform"
+	"io/ioutil"
 	"net/http"
 )
 
@@ -11,19 +16,28 @@ const (
 )
 
 // Get URL of horse data table
-func BuildURL(year, course, count, days, raceNum string) (url string) {
+func BuildURL(raceID string) (url string) {
 	url = fmt.Sprintf("%s://%s", protocol, baseUrl)
-	raceId := year + course + count + days + raceNum
-	url += raceId
+	url += raceID
 
 	return url
 }
 
-func sendReq(req *http.Request) (resp *http.Response, err error) {
+func getRespBody(req *http.Request) (string, error) {
 	httpCli := new(http.Client)
-	resp, err = httpCli.Do(req)
+	resp, err := httpCli.Do(req)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	return
+	defer resp.Body.Close()
+
+	utfBody := transform.NewReader(bufio.NewReader(resp.Body), japanese.EUCJP.NewDecoder())
+	body, err := ioutil.ReadAll(utfBody)
+	if err != nil {
+		return "", err
+	}
+
+	buf := bytes.NewBuffer(body)
+
+	return buf.String(), err
 }
